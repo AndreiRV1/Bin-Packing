@@ -1,13 +1,14 @@
 import random
 import time
-import  pyomo.environ as pyo
+import pyomo.environ as pyo
+
 
 # Restricted Master Problem (RMP) using Pyomo
 def bin_packing_rmp(iter_num, weights, patterns, lp_relax=False):
 
-    #Initiate model
+    # Initiate model
     model = pyo.ConcreteModel(name=f"BinPacking_RMP_{iter_num}")
-    
+
     # Create indices
     n_items = len(weights)
     items = range(1, n_items + 1)
@@ -15,34 +16,37 @@ def bin_packing_rmp(iter_num, weights, patterns, lp_relax=False):
 
     # Index sets in model
     model.Items = pyo.RangeSet(1, n_items)
-    model.Patterns = pyo.RangeSet(1, len(patterns_idx)) 
+    model.Patterns = pyo.RangeSet(1, len(patterns_idx))
 
     # Decision variables: z_j
     if lp_relax:
         # For LP relaxation
         model.z = pyo.Var(model.Patterns, domain=pyo.NonNegativeReals)
     else:
-        # For MILP 
+        # For MILP
         model.z = pyo.Var(model.Patterns, domain=pyo.Binary)
 
     # Objective: minimize number of bins
-    model.obj = pyo.Objective(rule=sum(model.z[j] for j in model.Patterns), sense=pyo.minimize)
+    model.obj = pyo.Objective(
+        rule=sum(model.z[j] for j in model.Patterns), sense=pyo.minimize
+    )
 
     # Coverage constraints: each item exactly once
     def cover_rule(m, i):
         # patterns that contain item i
         js = [j for j in patterns_idx if i in patterns[j]]
         return sum(m.z[j] for j in js) == 1
+
     model.cover = pyo.Constraint(model.Items, rule=cover_rule)
 
     if lp_relax:
         # Importing duals from solver
         model.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
 
-    #Specify the solver to use and solve the model
-    solver = pyo.SolverFactory("cbc")
+    # Specify the solver to use and solve the model
+    solver = pyo.SolverFactory("highs")
     solver.solve(model)
-    
+
     # Get objective value
     obj = pyo.value(model.obj)
 
@@ -61,7 +65,8 @@ def bin_packing_rmp(iter_num, weights, patterns, lp_relax=False):
 
     return obj, duals, selected_patterns
 
-#Knapsack subproblem via Dynamic Programming
+
+# Knapsack subproblem via Dynamic Programming
 def knapsack_dp(weights, values, capacity):
     N = len(weights)
     # dp[i][c] = best value using items 1..i with capacity c
@@ -73,11 +78,11 @@ def knapsack_dp(weights, values, capacity):
         prev = dp[i - 1]
         cur = dp[i]
         for c in range(1, capacity + 1):
-            #Can insert item i only when its weight is less than current capacity
+            # Can insert item i only when its weight is less than current capacity
             if w_i <= c:
                 without_i = prev[c]
                 with_i = v_i + prev[c - w_i]
-                #compare the cost of adding additional item vs not adding item
+                # compare the cost of adding additional item vs not adding item
                 cur[c] = with_i if with_i > without_i else without_i
             else:
                 cur[c] = prev[c]
@@ -93,31 +98,27 @@ def knapsack_dp(weights, values, capacity):
 
     return selected_pattern, dp[-1][-1]
 
+
 # Column Generation Loop
 def column_generation_bin_packing(weights, capacity, num_iters):
 
     # Initial patterns: each item alone in its own bin
     patterns = {j: [j] for j in range(1, len(weights) + 1)}
-    
+
     final_lp_obj = None
 
     for n in range(num_iters):
 
-        #print(f"Num available patterns at iteration {n}: {len(patterns)}")
+        # print(f"Num available patterns at iteration {n}: {len(patterns)}")
 
         # 1) Solve RMP in LP relaxation
         obj, duals, _ = bin_packing_rmp(
-            iter_num=n,
-            weights=weights,
-            patterns=patterns,
-            lp_relax=True
+            iter_num=n, weights=weights, patterns=patterns, lp_relax=True
         )
 
         # 2) Solve knapsack subproblem to find new pattern
         selected_pattern, max_value = knapsack_dp(
-            weights=weights,
-            values=duals,
-            capacity=capacity
+            weights=weights, values=duals, capacity=capacity
         )
 
         reduced_cost = 1 - max_value
@@ -130,19 +131,17 @@ def column_generation_bin_packing(weights, capacity, num_iters):
         if selected_pattern not in patterns.values():
             new_idx = len(patterns) + 1
             patterns[new_idx] = selected_pattern
-        
+
         # Save objective of LP
         final_lp_obj = obj
 
-    #Finally, solve the integer version using all generated patterns
+    # Finally, solve the integer version using all generated patterns
     final_obj, _, selected_patterns = bin_packing_rmp(
-        iter_num=len(weights),
-        weights=weights,
-        patterns=patterns,
-        lp_relax=False
+        iter_num=len(weights), weights=weights, patterns=patterns, lp_relax=False
     )
 
-    return patterns,selected_patterns, final_lp_obj,final_obj
+    return patterns, selected_patterns, final_lp_obj, final_obj
+
 
 if __name__ == "__main__":
     # Example: random items (you can replace with larger instances)
@@ -153,9 +152,10 @@ if __name__ == "__main__":
     print("Weights:", weights)
     t1 = time.perf_counter()
     num_gen_patterns, selected_patterns, lp_obj, obj = column_generation_bin_packing(
-    weights, capacity, num_iters=50)
+        weights, capacity, num_iters=50
+    )
     t2 = time.perf_counter()
     print(f"\nFinal number of bins: {obj}, , lp objective: {lp_obj}")
-    print(f"Total generated Patterns: {num_gen_patterns}" )
+    print(f"Total generated Patterns: {num_gen_patterns}")
     print(f"Selected patterns (items per bin): {selected_patterns}")
     print("Runtime:", t2 - t1)

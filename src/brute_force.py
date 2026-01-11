@@ -1,7 +1,20 @@
 def bin_packing_BF(items, bins, num_bins, C, i, assignment):
+    remaining_items = sum(items[i:])
+    remaining_space = num_bins * C - sum(bins)
+    if remaining_items > remaining_space:
+        return False
+
     if i == len(items):
         return True  # toate elementele au fost plasate
+
+    used_empty = False
+
     for b in range(num_bins):
+        if bins[b] == 0:
+            if used_empty:
+                continue
+            used_empty = True
+
         if bins[b] + items[i] <= C:
             bins[b] += items[i]
             assignment[i] = b
