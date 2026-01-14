@@ -1,3 +1,6 @@
+import random
+import time
+
 def first_fit_descending(items, capacity, existing_bins=None):
     """Standard FFD algorithm to pack items into bins."""
     if existing_bins is None:
@@ -65,11 +68,17 @@ def mffd_algorithm(items, capacity):
     return final_bins
 
 if __name__ == "__main__":
-    capacity = 100
-    weights = [60, 55, 45, 40, 35, 30, 25, 20, 15, 10]
+    items_count = 2500
+    bin_capacity = 100
+    weights = [random.randint(10, 45) for _ in range(items_count)]
     
-    result = mffd_algorithm(weights, capacity)
+    start = time.perf_counter()
+    result = mffd_algorithm(weights, bin_capacity)
+    end = time.perf_counter()
+    
     
     print(f"Total bins used: {len(result)}")
-    for i, b in enumerate(result):
-        print(f"Bin {i+1}: {b} (Sum: {sum(b)})")
+    print(f"Runtime:       {end - start:.4f}s")
+    
+
+        

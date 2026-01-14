@@ -12,6 +12,7 @@ from column_generation import column_generation_bin_packing
 # 1 - small
 # 2 - large
 # 3 - half
+# 4 - duplicates
 def generate_test(n, C, dist):
     if dist == 0:
         return [random.randint(1, C) for _ in range(n)]
@@ -21,6 +22,10 @@ def generate_test(n, C, dist):
         return [random.randint(C // 2, C) for _ in range(n)]
     elif dist == 3:
         return [random.randint(C // 3, 2 * C // 3) for _ in range(n)]
+    elif dist == 4:
+        num_types = 5
+        distinct_types = [random.randint(35, C//2) for _ in range(num_types)]
+        return [random.choice(distinct_types) for _ in range(n)]
 
 
 def solve_FFD(items, C):
@@ -34,19 +39,19 @@ def solve_MFFD(items, C):
 
 
 def solve_column_generation(items, C):
-    _, _, _, obj = column_generation_bin_packing(items, C, 50)
+    _, _, _, obj = column_generation_bin_packing(items, C, 150)
     return obj
 
 
 def get_distribution_string(dist):
-    return ["Uniform", "Small", "Large", "Half"][dist]
+    return ["Uniform", "Small", "Large", "Half", "Duplicates"][dist]
 
 
 def run_large_tests():
     # Test configurations
     different_n = [100, 250]
     different_C = [20, 50, 100, 1000, 10000]
-    distributions = [0, 1, 2, 3]
+    distributions = [0, 1, 2, 3, 4]
     num_instances = 1
 
     print(
